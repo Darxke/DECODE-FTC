@@ -14,6 +14,8 @@ import com.acmerobotics.roadrunner.MinVelConstraint;
 import com.acmerobotics.roadrunner.MotorFeedforward;
 import com.acmerobotics.roadrunner.Pose2d;
 import com.acmerobotics.roadrunner.Pose2dDual;
+import com.acmerobotics.roadrunner.PoseVelocity2d;
+import com.acmerobotics.roadrunner.PoseVelocity2dDual;
 import com.acmerobotics.roadrunner.ProfileAccelConstraint;
 import com.acmerobotics.roadrunner.Time;
 import com.acmerobotics.roadrunner.TimeTrajectory;
@@ -54,41 +56,33 @@ import java.util.List;
 @Config
 public final class MecanumDrive {
     public static class Params {
-        // IMU orientation
-        // TODO: fill in these values based on
-        //   see https://ftc-docs.firstinspires.org/en/latest/programming_resources/imu/imu.html?highlight=imu#physical-hub-mounting
         public RevHubOrientationOnRobot.LogoFacingDirection logoFacingDirection =
                 RevHubOrientationOnRobot.LogoFacingDirection.UP;
         public RevHubOrientationOnRobot.UsbFacingDirection usbFacingDirection =
-                RevHubOrientationOnRobot.UsbFacingDirection.FORWARD;
+                RevHubOrientationOnRobot.UsbFacingDirection.RIGHT;
 
-        // drive model parameters
-        public double inPerTick = 1;
-        public double lateralInPerTick = inPerTick;
-        public double trackWidthTicks = 0;
+        public double inPerTick = 0.00198988475;
+        public double lateralInPerTick = 0.001340175464690363;
+        public double trackWidthTicks = 5657.290397466518;
 
-        // feedforward parameters (in tick units)
-        public double kS = 0;
-        public double kV = 0;
-        public double kA = 0;
+        public double kS = 1.9846496767882806;
+        public double kV = 0.00024624373394576256;
+        public double kA = 0.0001;
 
-        // path profile parameters (in inches)
-        public double maxWheelVel = 50;
+        public double maxWheelVel = 80;
         public double minProfileAccel = -30;
-        public double maxProfileAccel = 50;
+        public double maxProfileAccel = 70;
 
-        // turn profile parameters (in radians)
-        public double maxAngVel = Math.PI; // shared with path
+        public double maxAngVel = Math.PI;
         public double maxAngAccel = Math.PI;
 
-        // path controller gains
-        public double axialGain = 0.0;
-        public double lateralGain = 0.0;
-        public double headingGain = 0.0; // shared with turn
+        public double axialGain = 13;
+        public double lateralGain = 2;
+        public double headingGain = 6;
 
         public double axialVelGain = 0.0;
         public double lateralVelGain = 0.0;
-        public double headingVelGain = 0.0; // shared with turn
+        public double headingVelGain = 0.0;
     }
 
     public static Params PARAMS = new Params();
@@ -107,11 +101,8 @@ public final class MecanumDrive {
             new ProfileAccelConstraint(PARAMS.minProfileAccel, PARAMS.maxProfileAccel);
 
     public final DcMotorEx leftFront, leftBack, rightBack, rightFront;
-
     public final VoltageSensor voltageSensor;
-
     public final LazyImu lazyImu;
-
     public final Localizer localizer;
     private final LinkedList<Pose2d> poseHistory = new LinkedList<>();
 
@@ -119,6 +110,10 @@ public final class MecanumDrive {
     private final DownsampledWriter targetPoseWriter = new DownsampledWriter("TARGET_POSE", 50_000_000);
     private final DownsampledWriter driveCommandWriter = new DownsampledWriter("DRIVE_COMMAND", 50_000_000);
     private final DownsampledWriter mecanumCommandWriter = new DownsampledWriter("MECANUM_COMMAND", 50_000_000);
+
+    public Pose2d getPose() {
+        return localizer.getPose();
+    }
 
     public class DriveLocalizer implements Localizer {
         public final Encoder leftFront, leftBack, rightBack, rightFront;
@@ -136,10 +131,6 @@ public final class MecanumDrive {
             rightFront = new OverflowEncoder(new RawEncoder(MecanumDrive.this.rightFront));
 
             imu = lazyImu.get();
-
-            // TODO: reverse encoders if needed
-            //   leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
-
             this.pose = pose;
         }
 
@@ -169,14 +160,11 @@ public final class MecanumDrive {
 
             if (!initialized) {
                 initialized = true;
-
                 lastLeftFrontPos = leftFrontPosVel.position;
                 lastLeftBackPos = leftBackPosVel.position;
                 lastRightBackPos = rightBackPosVel.position;
                 lastRightFrontPos = rightFrontPosVel.position;
-
                 lastHeading = heading;
-
                 return new PoseVelocity2d(new Vector2d(0.0, 0.0), 0.0);
             }
 
@@ -204,7 +192,6 @@ public final class MecanumDrive {
             lastLeftBackPos = leftBackPosVel.position;
             lastRightBackPos = rightBackPosVel.position;
             lastRightFrontPos = rightFrontPosVel.position;
-
             lastHeading = heading;
 
             pose = pose.plus(new Twist2d(
@@ -223,8 +210,6 @@ public final class MecanumDrive {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
         }
 
-        // TODO: make sure your config has motors with these names (or change them)
-        //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html
         leftFront = hardwareMap.get(DcMotorEx.class, "leftFront");
         leftBack = hardwareMap.get(DcMotorEx.class, "leftBack");
         rightBack = hardwareMap.get(DcMotorEx.class, "rightBack");
@@ -235,17 +220,14 @@ public final class MecanumDrive {
         rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        // TODO: reverse motor directions if needed
-        //   leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
+        // Reverse these if your robot goes backward with positive input
+        leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
+        leftBack.setDirection(DcMotorSimple.Direction.REVERSE);
 
-        // TODO: make sure your config has an IMU with this name (can be BNO or BHI)
-        //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html
         lazyImu = new LazyHardwareMapImu(hardwareMap, "imu", new RevHubOrientationOnRobot(
                 PARAMS.logoFacingDirection, PARAMS.usbFacingDirection));
-
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
-
-        localizer = new DriveLocalizer(pose);
+        localizer = new PinpointLocalizer(hardwareMap, PARAMS.inPerTick, pose);
 
         FlightRecorder.write("MECANUM_PARAMS", PARAMS);
     }
@@ -273,7 +255,6 @@ public final class MecanumDrive {
 
         public FollowTrajectoryAction(TimeTrajectory t) {
             timeTrajectory = t;
-
             List<Double> disps = com.acmerobotics.roadrunner.Math.range(
                     0, t.path.length(),
                     Math.max(2, (int) Math.ceil(t.path.length() / 2)));
@@ -301,22 +282,18 @@ public final class MecanumDrive {
                 leftBack.setPower(0);
                 rightBack.setPower(0);
                 rightFront.setPower(0);
-
                 return false;
             }
 
             Pose2dDual<Time> txWorldTarget = timeTrajectory.get(t);
             targetPoseWriter.write(new PoseMessage(txWorldTarget.value()));
-
             PoseVelocity2d robotVelRobot = updatePoseEstimate();
-
             PoseVelocity2dDual<Time> command = new HolonomicController(
                     PARAMS.axialGain, PARAMS.lateralGain, PARAMS.headingGain,
                     PARAMS.axialVelGain, PARAMS.lateralVelGain, PARAMS.headingVelGain
             )
-                    .compute(txWorldTarget, localizer.getPose(), robotVelRobot);
+                    .compute(txWorldTarget, getPose(), robotVelRobot);
             driveCommandWriter.write(new DriveCommandMessage(command));
-
             MecanumKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(command);
             double voltage = voltageSensor.getVoltage();
 
@@ -335,29 +312,22 @@ public final class MecanumDrive {
             rightBack.setPower(rightBackPower);
             rightFront.setPower(rightFrontPower);
 
-            p.put("x", localizer.getPose().position.x);
-            p.put("y", localizer.getPose().position.y);
-            p.put("heading (deg)", Math.toDegrees(localizer.getPose().heading.toDouble()));
-
-            Pose2d error = txWorldTarget.value().minusExp(localizer.getPose());
+            p.put("x", getPose().position.x);
+            p.put("y", getPose().position.y);
+            p.put("heading (deg)", Math.toDegrees(getPose().heading.toDouble()));
+            Pose2d error = txWorldTarget.value().minusExp(getPose());
             p.put("xError", error.position.x);
             p.put("yError", error.position.y);
             p.put("headingError (deg)", Math.toDegrees(error.heading.toDouble()));
-
-            // only draw when active; only one drive action should be active at a time
             Canvas c = p.fieldOverlay();
             drawPoseHistory(c);
-
             c.setStroke("#4CAF50");
             Drawing.drawRobot(c, txWorldTarget.value());
-
             c.setStroke("#3F51B5");
-            Drawing.drawRobot(c, localizer.getPose());
-
+            Drawing.drawRobot(c, getPose());
             c.setStroke("#4CAF50FF");
             c.setStrokeWidth(1);
             c.strokePolyline(xPoints, yPoints);
-
             return true;
         }
 
@@ -371,7 +341,6 @@ public final class MecanumDrive {
 
     public final class TurnAction implements Action {
         private final TimeTurn turn;
-
         private double beginTs = -1;
 
         public TurnAction(TimeTurn turn) {
@@ -393,22 +362,18 @@ public final class MecanumDrive {
                 leftBack.setPower(0);
                 rightBack.setPower(0);
                 rightFront.setPower(0);
-
                 return false;
             }
 
             Pose2dDual<Time> txWorldTarget = turn.get(t);
             targetPoseWriter.write(new PoseMessage(txWorldTarget.value()));
-
             PoseVelocity2d robotVelRobot = updatePoseEstimate();
-
             PoseVelocity2dDual<Time> command = new HolonomicController(
                     PARAMS.axialGain, PARAMS.lateralGain, PARAMS.headingGain,
                     PARAMS.axialVelGain, PARAMS.lateralVelGain, PARAMS.headingVelGain
             )
-                    .compute(txWorldTarget, localizer.getPose(), robotVelRobot);
+                    .compute(txWorldTarget, getPose(), robotVelRobot);
             driveCommandWriter.write(new DriveCommandMessage(command));
-
             MecanumKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(command);
             double voltage = voltageSensor.getVoltage();
             final MotorFeedforward feedforward = new MotorFeedforward(PARAMS.kS,
@@ -428,16 +393,12 @@ public final class MecanumDrive {
 
             Canvas c = p.fieldOverlay();
             drawPoseHistory(c);
-
             c.setStroke("#4CAF50");
             Drawing.drawRobot(c, txWorldTarget.value());
-
             c.setStroke("#3F51B5");
-            Drawing.drawRobot(c, localizer.getPose());
-
+            Drawing.drawRobot(c, getPose());
             c.setStroke("#7C4DFFFF");
             c.fillCircle(turn.beginPose.position.x, turn.beginPose.position.y, 2);
-
             return true;
         }
 
@@ -450,30 +411,23 @@ public final class MecanumDrive {
 
     public PoseVelocity2d updatePoseEstimate() {
         PoseVelocity2d vel = localizer.update();
-        poseHistory.add(localizer.getPose());
-        
+        poseHistory.add(getPose());
         while (poseHistory.size() > 100) {
             poseHistory.removeFirst();
         }
-
-        estimatedPoseWriter.write(new PoseMessage(localizer.getPose()));
-        
-        
+        estimatedPoseWriter.write(new PoseMessage(getPose()));
         return vel;
     }
 
     private void drawPoseHistory(Canvas c) {
         double[] xPoints = new double[poseHistory.size()];
         double[] yPoints = new double[poseHistory.size()];
-
         int i = 0;
         for (Pose2d t : poseHistory) {
             xPoints[i] = t.position.x;
             yPoints[i] = t.position.y;
-
             i++;
         }
-
         c.setStrokeWidth(1);
         c.setStroke("#3F51B5");
         c.strokePolyline(xPoints, yPoints);
