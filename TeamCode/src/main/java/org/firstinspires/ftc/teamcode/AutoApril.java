@@ -12,7 +12,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import java.lang.reflect.Method;
 import java.util.List;
 
-@Autonomous(name = "AutoApril (Tag → Action)", group = "Auto")
+@Autonomous(name = "AutoApril", group = "Auto")
 public class AutoApril extends LinearOpMode {
 
     // --- Camera name in RC config ---
@@ -82,46 +82,43 @@ public class AutoApril extends LinearOpMode {
         // ===== ACTIONS BY TAG ID =====
         if (chosen == ID_20) {
             telemetry.addLine("Branch: ID 20");
+            telemetry.addLine("blue");
             telemetry.update();
-            driveForward(0.6, 900);
-            turnRight(0.5, 550);
-            parkStop();
-
+            sleep(5000);
         } else if (chosen == ID_21) {
             telemetry.addLine("Branch: ID 21");
+            telemetry.addLine("gpp");
             telemetry.update();
-            strafeLeft(0.6, 800);
-            driveForward(0.6, 700);
-            parkStop();
+            sleep(5000);
+
 
         } else if (chosen == ID_22) {
             telemetry.addLine("Branch: ID 22");
+            telemetry.addLine("pgp");
             telemetry.update();
-            strafeRight(0.6, 800);
-            driveForward(0.6, 700);
-            parkStop();
+            sleep(5000);
+
 
         } else if (chosen == ID_23) {
             telemetry.addLine("Branch: ID 23");
+            telemetry.addLine("ppg");
             telemetry.update();
-            driveForward(0.6, 500);
-            turnLeft(0.5, 550);
-            driveForward(0.6, 600);
-            parkStop();
+            sleep(5000);
+
 
         } else if (chosen == ID_24) {
             telemetry.addLine("Branch: ID 24");
+            telemetry.addLine("red");
             telemetry.update();
-            driveForward(-0.5, 600); // back up
-            strafeRight(0.6, 900);
-            parkStop();
+            sleep(5000);
+
 
         } else {
             // Fallback if nothing was seen
             telemetry.addLine("No tag detected — running fallback.");
             telemetry.update();
-            driveForward(0.4, 600);
-            parkStop();
+            sleep(5000);
+
         }
     }
 
@@ -165,7 +162,7 @@ public class AutoApril extends LinearOpMode {
         List<AprilTagDetection> dets = aprilTag.getDetections();
         AprilTagDetection pick = null;
         for (AprilTagDetection d : dets) {
-            if (d.id == ID_20 || d.id == ID_21 || d.id == ID_22 || d.id == ID_23 || d.id == ID_24) {
+            if (d.id == ID_20  || d.id == ID_21 || d.id == ID_22 || d.id == ID_23 || d.id == ID_24) {
                 pick = d; // keep last matching detection this frame
             }
         }

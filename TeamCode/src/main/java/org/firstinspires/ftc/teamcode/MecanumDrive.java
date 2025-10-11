@@ -227,7 +227,7 @@ public final class MecanumDrive {
         lazyImu = new LazyHardwareMapImu(hardwareMap, "imu", new RevHubOrientationOnRobot(
                 PARAMS.logoFacingDirection, PARAMS.usbFacingDirection));
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
-        localizer = new PinpointLocalizer(hardwareMap, PARAMS.inPerTick, pose);
+        localizer = new PinpointLocalizer(hardwareMap, PARAMS.inPerTick, pose);         
 
         FlightRecorder.write("MECANUM_PARAMS", PARAMS);
     }
